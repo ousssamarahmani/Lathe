@@ -9,13 +9,14 @@
   "type": "module",
   "scripts": {
     "typecheck": "pnpm -r --if-present run typecheck",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-import-boundaries.mjs",
     "test": "vitest run",
     "test:integration": "pnpm -r --if-present run test:integration",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "dependency-cruiser": "18.8.0",
     "eslint": "10.15.0",
     "prettier": "3.10.1",
     "typescript": "6.0.3",
