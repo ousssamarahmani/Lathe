@@ -38,6 +38,27 @@ export {
   type UserId,
 } from './tenancy/index.js';
 
+export {
+  OWNER_ROLE,
+  OrgError,
+  acceptInvitation,
+  changeRole,
+  createInvitation,
+  createOrganization,
+  hashInviteToken,
+  invitations,
+  isInviteToken,
+  listMyMemberships,
+  newInviteToken,
+  removeMember,
+  setActiveOrg,
+  type Caller,
+  type Invitation,
+  type MembershipSummary,
+  type OrgDeps,
+  type OrgErrorCode,
+} from './orgs/index.js';
+
 export const PACKAGE_NAME = '@lathe/application-foundation';
 
 export function packageName(): string {

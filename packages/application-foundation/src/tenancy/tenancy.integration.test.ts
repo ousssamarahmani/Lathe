@@ -4,6 +4,8 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { auditEvents, memberships, organizations } from '../db/schema.js';
+// Registers every tenant table of the package for the registry checks below.
+import '../index.js';
 import {
   createDb,
   createPool,
