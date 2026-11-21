@@ -14,6 +14,8 @@ export interface RunInput {
   readonly worktree: string;
   readonly commit: string;
   readonly faultInjection: FaultInjectionRecord | null;
+  /** Agent patch as `git diff` text. Absent or null means no patch was given. */
+  readonly patch?: string | null;
   readonly gates: Readonly<Record<GateId, Gate>>;
   readonly harnessSha256: string;
   readonly policySha256: string;
@@ -58,6 +60,7 @@ export async function runVerification(input: RunInput): Promise<VerificationRepo
     worktree: input.worktree,
     commit: input.commit,
     faultInjection: input.faultInjection,
+    patch: input.patch ?? null,
   };
   const startedAt = input.now();
   const gates: GateResult[] = [];

@@ -6,6 +6,8 @@ export interface GateContext {
   readonly worktree: string;
   readonly commit: string;
   readonly faultInjection: FaultInjectionRecord | null;
+  /** The agent patch as `git diff` text (the sandbox's canonical patch), or null when none was given. */
+  readonly patch: string | null;
 }
 
 /** A gate's own verdict. `not_run` is set by the runner, never by a gate. */

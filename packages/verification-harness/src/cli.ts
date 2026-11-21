@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -14,9 +14,11 @@ import { defaultGates } from './registry.js';
 import { runVerification } from './runner.js';
 
 export const USAGE =
-  'usage: lathe-verify <app> --worktree <dir> --commit <sha> --report <file> [--fault drop-tenant-filter]';
+  'usage: lathe-verify <app> --worktree <dir> --commit <sha> --report <file> [--patch <file>] [--fault drop-tenant-filter]';
 const PACKAGE_DIR = fileURLToPath(new URL('..', import.meta.url));
-const KNOWN_FLAGS = new Set(['--worktree', '--commit', '--report', '--fault']);
+const KNOWN_FLAGS = new Set(['--worktree', '--commit', '--report', '--patch', '--fault']);
+/** Same limit as `Patch.diff` in contract C2. */
+const MAX_PATCH_BYTES = 5_000_000;
 
 export interface CliDeps {
   readonly gates?: Readonly<Record<GateId, Gate>>;
@@ -31,6 +33,7 @@ interface CliArgs {
   readonly worktree: string;
   readonly commit: string;
   readonly report: string;
+  readonly patch: string | null;
   readonly fault: string | null;
 }
 
@@ -57,7 +60,14 @@ export function parseArgs(argv: readonly string[]): CliArgs | string {
   const commit = flags.get('--commit');
   const report = flags.get('--report');
   if (!worktree || !commit || !report) return 'missing --worktree, --commit or --report';
-  return { app, worktree, commit, report, fault: flags.get('--fault') ?? null };
+  return {
+    app,
+    worktree,
+    commit,
+    report,
+    patch: flags.get('--patch') ?? null,
+    fault: flags.get('--fault') ?? null,
+  };
 }
 
 /** `lathe-verify` entry point. Returns the process exit code from `VERIFY_EXIT_CODES`. */
@@ -85,13 +95,29 @@ export async function main(argv: readonly string[], deps: CliDeps = {}): Promise
     );
     return VERIFY_EXIT_CODES.error;
   }
+  let patch: string | null = null;
+  if (args.patch !== null) {
+    try {
+      const bytes = await readFile(resolve(args.patch));
+      if (bytes.byteLength > MAX_PATCH_BYTES) {
+        stderr(`patch is larger than ${MAX_PATCH_BYTES} bytes`);
+        return VERIFY_EXIT_CODES.error;
+      }
+      patch = bytes.toString('utf8');
+    } catch (error) {
+      stderr(`cannot read patch: ${error instanceof Error ? error.message : String(error)}`);
+      return VERIFY_EXIT_CODES.error;
+    }
+  }
+  const policyDir = deps.policyDir ?? resolve(PACKAGE_DIR, 'policies');
   const report = await runVerification({
     ...request.data,
-    gates: deps.gates ?? defaultGates(),
+    patch,
+    gates: deps.gates ?? defaultGates(policyDir),
     harnessSha256: deps.harnessDir
       ? await hashTree(deps.harnessDir)
       : await harnessHash(PACKAGE_DIR),
-    policySha256: await hashTree(deps.policyDir ?? resolve(PACKAGE_DIR, 'policies')),
+    policySha256: await hashTree(policyDir),
     now: deps.now ?? (() => new Date()),
   });
   const reportPath = resolve(args.report);
