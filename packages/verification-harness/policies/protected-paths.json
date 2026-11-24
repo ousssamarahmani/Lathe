@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "protected": [
+    "packages/verification-harness/",
+    "tests/harness-selftest/",
+    ".github/",
+    "packages/shared-contracts/",
+    ".kiro/",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml"
+  ],
+  "rejectSymlinks": true,
+  "rejectSubmodules": true
+}

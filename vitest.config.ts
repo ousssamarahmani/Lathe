@@ -6,8 +6,10 @@ export default defineConfig({
       'packages/application-foundation',
       'packages/verification-harness',
       'packages/shared-contracts',
-      'apps/workspace',
       'services/factory-engine',
+      // Every app has its own vitest.config.ts, including apps from `pnpm new-app`.
+      'apps/*',
+      'templates/*',
       // Tests of repository tooling (import boundaries, P0-10). Fixture files are not tests.
       { test: { name: 'scripts', include: ['scripts/**/*.test.mjs'] } },
     ],

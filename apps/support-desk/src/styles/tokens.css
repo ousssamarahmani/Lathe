@@ -1,0 +1,141 @@
+/*
+ * Design tokens, copied from the Lathe design system (task P9-00) when the template was
+ * created (task P1-07). Apps own their copy and may restyle it. Every other stylesheet
+ * uses var(--...) only.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Neutrals */
+  --color-black: #0a0a0b;
+  --color-charcoal-900: #111114;
+  --color-charcoal-800: #18181c;
+  --color-charcoal-700: #222228;
+  --color-charcoal-600: #2e2e36;
+  --color-charcoal-500: #3f3f49;
+  --color-gray-500: #6e6e7a;
+  --color-gray-400: #8b8b97;
+  --color-gray-300: #a9a9b4;
+  --color-gray-200: #d2d2d9;
+  --color-white: #f5f5f7;
+
+  /* Accent: violet, used sparingly (primary action, focus, active nav) */
+  --color-violet-700: #5a3ec9;
+  --color-violet-600: #6d4fe0;
+  --color-violet-500: #8466f0;
+  --color-violet-400: #a48cf5;
+  --color-violet-950: #1c1630;
+
+  /* Status */
+  --color-green-400: #4ade80;
+  --color-green-950: #0e2418;
+  --color-red-400: #f87171;
+  --color-red-950: #2a1212;
+  --color-amber-400: #fbbf24;
+  --color-amber-950: #2a1f08;
+  --color-blue-400: #60a5fa;
+  --color-blue-950: #0e1a2e;
+
+  /* Semantic: surfaces */
+  --surface-page: var(--color-black);
+  --surface-raised: var(--color-charcoal-900);
+  --surface-sunken: var(--color-charcoal-800);
+  --surface-hover: var(--color-charcoal-700);
+  --surface-accent: var(--color-violet-950);
+
+  /* Semantic: text */
+  --text-primary: var(--color-white);
+  --text-secondary: var(--color-gray-200);
+  --text-muted: var(--color-gray-400);
+  --text-accent: var(--color-violet-400);
+  --text-on-accent: var(--color-white);
+
+  /* Semantic: borders and focus */
+  --border-subtle: var(--color-charcoal-700);
+  --border-default: var(--color-charcoal-600);
+  /* Form controls: at least 3:1 against surfaces (WCAG 1.4.11). Subtle and default are dividers only. */
+  --border-strong: var(--color-gray-500);
+  --focus-ring: var(--color-violet-400);
+
+  /* Semantic: actions */
+  --action-primary: var(--color-violet-600);
+  /* Hover darkens: white on a lighter violet would drop below 4.5:1. */
+  --action-primary-hover: var(--color-violet-700);
+  --action-secondary: var(--color-charcoal-700);
+  --action-secondary-hover: var(--color-charcoal-600);
+  --action-danger: var(--color-red-950);
+
+  /* Semantic: status (run states, gate results, deliveries) */
+  --status-success-text: var(--color-green-400);
+  --status-success-bg: var(--color-green-950);
+  --status-danger-text: var(--color-red-400);
+  --status-danger-bg: var(--color-red-950);
+  --status-warning-text: var(--color-amber-400);
+  --status-warning-bg: var(--color-amber-950);
+  --status-info-text: var(--color-blue-400);
+  --status-info-bg: var(--color-blue-950);
+  --status-neutral-text: var(--color-gray-300);
+  --status-neutral-bg: var(--color-charcoal-700);
+
+  /* Diff lines */
+  --diff-add-bg: var(--color-green-950);
+  --diff-add-text: var(--color-green-400);
+  --diff-remove-bg: var(--color-red-950);
+  --diff-remove-text: var(--color-red-400);
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+  --font-size-3xl: 3rem;
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Spacing (4 px grid) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* Layout grid */
+  --grid-columns: 12;
+  --grid-gutter: var(--space-5);
+  --content-max: 80rem;
+  --sidebar-width: 15rem;
+  --sidebar-collapsed: 4rem;
+  --topbar-height: 3.5rem;
+
+  /* Borders, radii, shadows */
+  --border-width: 1px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-overlay: 0 8px 32px rgb(0 0 0 / 0.6);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+  }
+}

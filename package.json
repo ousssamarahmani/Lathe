@@ -12,7 +12,8 @@
     "lint": "eslint . && node scripts/check-import-boundaries.mjs",
     "test": "vitest run",
     "test:integration": "pnpm -r --if-present run test:integration",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "new-app": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/new-app.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

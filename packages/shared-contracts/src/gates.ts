@@ -11,7 +11,9 @@
  * with `VerificationReport`. It never imports harness code.
  *
  * CLI shape (implemented in P2-01):
- *   lathe-verify <app> --worktree <dir> --commit <sha> --report <file>
+ *   lathe-verify <app> --worktree <dir> --commit <sha> --report <file> --patch <file> [--fault <name>]
+ * `--patch` is the agent's canonical patch (C2 `Patch.diff`, plain `git diff`); without it the
+ * protected-paths gate reports `error`, so a run without a patch can never pass (v1.2).
  * Exit codes are in `VERIFY_EXIT_CODES`.
  *
  * `resultHash` is the sha256 of this UTF-8 preimage, each part on its own line,

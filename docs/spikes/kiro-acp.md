@@ -18,7 +18,28 @@ Date: 2026-11-19. Kiro CLI 3.4.0 on the host and in the container. Docker Deskto
 1. Image `lathe-spike/kiro:p0-04` from `scripts/spikes/kiro-sandbox/Dockerfile`: Debian slim, Kiro CLI from the official install script, user `10001`, no shell login.
 2. Hardening on every container: `--user 10001:10001 --cap-drop ALL --security-opt no-new-privileges --read-only`, tmpfs `/tmp`, `--pids-limit 256 --memory 2g --cpus 2`, no Docker socket. Checked inside the container: `CapEff 0`, `NoNewPrivs 1`, root file system read-only, `/var/run/docker.sock` absent.
 3. Login once: `kiro-cli login --license free --use-device-flow` in the container, with the volume `lathe-kiro-p004-home` mounted at `/home/lathe`. The human confirmed a one-time code in the browser. Result: `Logged in`, exit 0; `kiro-cli whoami` in a new container: `Logged in with Builder ID`.
-4. Handshake with `scripts/spikes/acp-handshake.mjs` (no dependencies): `docker run ... -v <empty workdir>:/workspace/app lathe-spike/kiro:p0-04 acp`.
+4. Handshake with `scripts/spikes/acp-handshake.mjs` (no dependencies). Exact commands: "Re-run from a clean clone" below.
+
+## Re-run from a clean clone
+
+Bash, repository root, Docker running. `H` holds the flags from `scripts/spikes/kiro-sandbox/docker-run-args.json`.
+
+```bash
+H="--rm -i --user 10001:10001 --cap-drop ALL --security-opt no-new-privileges --read-only \
+   --tmpfs /tmp:rw,noexec,nosuid,size=64m --pids-limit 256 --memory 2g --cpus 2"
+docker build -t lathe-spike/kiro:p0-04 scripts/spikes/kiro-sandbox
+docker run $H -v lathe-kiro-p004-home:/home/lathe lathe-spike/kiro:p0-04 login --license free --use-device-flow
+docker run $H -v lathe-kiro-p004-home:/home/lathe lathe-spike/kiro:p0-04 whoami
+mkdir -p /tmp/lathe-spike-work
+node scripts/spikes/acp-handshake.mjs --out /tmp/lathe-spike-out --cwd /workspace/app \
+  --timeout 180000 --cancel-after 5000 -- \
+  docker run $H -v lathe-kiro-p004-home:/home/lathe -v /tmp/lathe-spike-work:/workspace/app \
+  lathe-spike/kiro:p0-04 acp
+cat /tmp/lathe-spike-work/SPIKE_OK.txt   # expected: lathe spike ok
+# clean up the credential
+docker run $H -v lathe-kiro-p004-home:/home/lathe lathe-spike/kiro:p0-04 logout
+docker volume rm lathe-kiro-p004-home
+```
 
 Before the login, the same handshake failed at `session/new` with `-32000 Authentication required. Not logged in. Set the KIRO_API_KEY environment variable or run kiro-cli login first`.
 
@@ -45,4 +66,6 @@ Notifications during the run: 60 `session/update` (`agent_message_chunk` 6, `too
 
 - Egress allow-list and the production image (P4-02).
 - Long or multi-file prompts, and resuming with `session/load`.
+- Kiro CLI version not pinned: the installer's sha256 is recorded but not checked. P4-02 pins and verifies it.
+- Kiro's terms of use and rate limits for automated use on the Free plan: not confirmed (ADR 0003).
 - Headless mode with a login session.

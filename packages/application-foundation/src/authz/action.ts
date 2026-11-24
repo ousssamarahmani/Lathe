@@ -8,6 +8,8 @@ import { withTenant, withUser, type TenantTx } from '../tenancy/with-tenant.js';
 import { OrgError } from '../orgs/errors.js';
 import { requireMembership, type Caller } from '../orgs/orgs.js';
 import { can, USER_PERMISSIONS, type Authz, type UserPermission } from './policy.js';
+import { canInScope, type ScopeContext } from './hierarchy.js';
+import { loadScopeContextInTx, resolveScopeInTx, type ResolvedScope } from '../scopes/scopes.js';
 
 type Db = NodePgDatabase<Record<string, unknown>>;
 
@@ -115,6 +117,72 @@ function checkRequestId(requestId: string): void {
   if (!UUID.test(requestId)) throw new Error('requestId must be a server-generated UUID');
 }
 
+type AuditBase = { readonly action: string; readonly resourceType: string };
+type Audit = (tx: TenantTx, outcome: AuditOutcome, resourceId?: string | null) => Promise<void>;
+type OrgStart =
+  | { readonly ok: false; readonly result: ActionResult<never> }
+  | {
+      readonly ok: true;
+      readonly principal: Principal;
+      readonly orgId: OrgId;
+      readonly caller: Caller;
+      readonly audit: Audit;
+    };
+
+/** Steps 1 and 2 of an org action: authenticate, take the active org from the session. */
+async function startOrgAction(
+  deps: ActionDeps,
+  request: ActionRequest,
+  base: AuditBase,
+): Promise<OrgStart> {
+  checkRequestId(request.requestId);
+  const requestId = request.requestId;
+  const principal = await readPrincipal(deps, request.headers);
+  if (!principal) {
+    await auditWithoutOrg(deps.db, null, { ...base, outcome: 'denied', requestId });
+    return { ok: false, result: fail('unauthenticated', 'sign in required') };
+  }
+  const orgId = principal.activeOrgId;
+  if (!orgId) {
+    await auditWithoutOrg(deps.db, principal, { ...base, outcome: 'denied', requestId });
+    return { ok: false, result: fail('forbidden', 'no active organization') };
+  }
+  const caller: Caller = { userId: principal.userId, requestId };
+  const audit: Audit = async (tx, outcome, resourceId = null) => {
+    await writeAudit(tx, {
+      ...base,
+      actorId: principal.userId,
+      orgId,
+      resourceId,
+      outcome,
+      requestId,
+    });
+  };
+  return { ok: true, principal, orgId, caller, audit };
+}
+
+/**
+ * Runs the tenant transaction of an org action. If it throws, its writes are rolled
+ * back and the outcome is audited in a separate transaction; expected errors become
+ * results, anything else is re-thrown.
+ */
+async function inTenant<T>(
+  deps: ActionDeps,
+  start: Extract<OrgStart, { ok: true }>,
+  body: (tx: TenantTx) => Promise<ActionResult<T>>,
+): Promise<ActionResult<T>> {
+  try {
+    return await withTenant(deps.db, start.orgId, body);
+  } catch (error) {
+    const known = expected(error);
+    await withTenant(deps.db, start.orgId, (tx) =>
+      start.audit(tx, known?.code === 'forbidden' ? 'denied' : 'failure'),
+    );
+    if (known) return fail(known.code, known.message);
+    throw error;
+  }
+}
+
 /**
  * Wraps an org-scoped route or server action (task P1-05). Every request runs,
  * in this order and in one transaction for steps 3 to 7:
@@ -152,56 +220,122 @@ export function defineAction<P extends string, S extends z.ZodType, T>(
   const base = { action, resourceType: config.resourceType };
 
   const run = async (deps: ActionDeps, request: ActionRequest): Promise<ActionResult<T>> => {
-    checkRequestId(request.requestId);
-    const requestId = request.requestId;
+    const start = await startOrgAction(deps, request, base);
+    if (!start.ok) return start.result;
+    const { principal, orgId, caller, audit } = start;
 
-    const principal = await readPrincipal(deps, request.headers);
-    if (!principal) {
-      await auditWithoutOrg(deps.db, null, { ...base, outcome: 'denied', requestId });
-      return fail('unauthenticated', 'sign in required');
-    }
-    const orgId = principal.activeOrgId;
-    if (!orgId) {
-      await auditWithoutOrg(deps.db, principal, { ...base, outcome: 'denied', requestId });
-      return fail('forbidden', 'no active organization');
-    }
-    const caller: Caller = { userId: principal.userId, requestId };
-    const audit = (tx: TenantTx, outcome: AuditOutcome, resourceId: string | null = null) =>
-      writeAudit(tx, { ...base, actorId: principal.userId, orgId, resourceId, outcome, requestId });
+    return inTenant(deps, start, async (tx): Promise<ActionResult<T>> => {
+      let membership: { id: string; role: string };
+      try {
+        membership = await requireMembership(tx, orgId, principal.userId);
+      } catch (error) {
+        if (!(error instanceof OrgError)) throw error;
+        await audit(tx, 'denied');
+        return fail('not_found', 'not found');
+      }
+      if (!can(authz, membership.role, config.permission)) {
+        await audit(tx, 'denied');
+        return fail('forbidden', 'not allowed');
+      }
+      const parsed = config.input.safeParse(request.input);
+      if (!parsed.success) return fail('validation_failed', validationMessage(parsed.error));
 
-    try {
-      return await withTenant(deps.db, orgId, async (tx): Promise<ActionResult<T>> => {
-        let membership: { id: string; role: string };
-        try {
-          membership = await requireMembership(tx, orgId, principal.userId);
-        } catch (error) {
-          if (!(error instanceof OrgError)) throw error;
-          await audit(tx, 'denied');
-          return fail('not_found', 'not found');
-        }
-        if (!can(authz, membership.role, config.permission)) {
-          await audit(tx, 'denied');
-          return fail('forbidden', 'not allowed');
-        }
-        const parsed = config.input.safeParse(request.input);
-        if (!parsed.success) return fail('validation_failed', validationMessage(parsed.error));
-
-        const value = await config.handler(
-          { tx, principal, orgId, membership, caller },
-          parsed.data as z.output<S>,
-        );
-        await audit(tx, 'success', config.resourceId?.(value, parsed.data as z.output<S>) ?? null);
-        return { ok: true, value };
-      });
-    } catch (error) {
-      // The handler's transaction rolled back. Record the outcome separately.
-      const known = expected(error);
-      await withTenant(deps.db, orgId, (tx) =>
-        audit(tx, known?.code === 'forbidden' ? 'denied' : 'failure'),
+      const value = await config.handler(
+        { tx, principal, orgId, membership, caller },
+        parsed.data as z.output<S>,
       );
-      if (known) return fail(known.code, known.message);
-      throw error;
-    }
+      await audit(tx, 'success', config.resourceId?.(value, parsed.data as z.output<S>) ?? null);
+      return { ok: true, value };
+    });
+  };
+
+  return Object.assign(run, { permission: config.permission as string, scope: 'org' as const });
+}
+
+/** Context of a scoped action: the org context plus the resolved scope. */
+export interface ScopedActionContext extends OrgActionContext {
+  /** The target scope, or `null` when the action targets the org itself. */
+  readonly scope: ResolvedScope | null;
+  /** The caller's rules on the scope chain, for further checks such as `mayAssignInScope`. */
+  readonly scopeContext: ScopeContext;
+}
+
+/**
+ * Like `defineAction`, but the permission is checked at a scope (task P7-01)
+ * instead of org-wide. `scope(input)` names the target scope, or `null` for the
+ * org itself. Order, in one transaction after authentication:
+ *
+ * 1. membership in the active org, re-checked now; none → `not_found`
+ * 2. parse `input`; invalid → `validation_failed`
+ * 3. resolve the scope in this org; unknown or foreign → `not_found`
+ * 4. `canInScope(permission)` on the chain org → team → project; no → `forbidden`
+ * 5. `handler`, then the audit event
+ *
+ * Input is parsed before the permission check because the scope comes from it.
+ * Denials (1, 3, 4) are audited and committed; the handler never runs.
+ */
+export function defineScopedAction<P extends string, S extends z.ZodType, T>(
+  authz: Authz<P>,
+  config: {
+    readonly permission: NoInfer<P>;
+    readonly input: S;
+    /** The scope id the request acts on, taken from parsed input. `null`: the org itself. */
+    readonly scope: (input: z.output<S>) => string | null;
+    readonly action?: string;
+    readonly resourceType: string;
+    readonly resourceId?: (result: T, input: z.output<S>) => string | null;
+    readonly handler: (ctx: ScopedActionContext, input: z.output<S>) => Promise<T>;
+  },
+): Action<T> {
+  if (!authz.permissions.includes(config.permission)) {
+    throw new Error(`defineScopedAction: permission ${String(config.permission)} is not declared`);
+  }
+  const base = { action: config.action ?? config.permission, resourceType: config.resourceType };
+
+  const run = async (deps: ActionDeps, request: ActionRequest): Promise<ActionResult<T>> => {
+    const start = await startOrgAction(deps, request, base);
+    if (!start.ok) return start.result;
+    const { principal, orgId, caller, audit } = start;
+
+    return inTenant(deps, start, async (tx): Promise<ActionResult<T>> => {
+      let membership: { id: string; role: string };
+      try {
+        membership = await requireMembership(tx, orgId, principal.userId);
+      } catch (error) {
+        if (!(error instanceof OrgError)) throw error;
+        await audit(tx, 'denied');
+        return fail('not_found', 'not found');
+      }
+      const parsed = config.input.safeParse(request.input);
+      if (!parsed.success) return fail('validation_failed', validationMessage(parsed.error));
+      const input = parsed.data as z.output<S>;
+
+      const scopeId = config.scope(input);
+      if (scopeId !== null && !UUID.test(scopeId)) {
+        await audit(tx, 'denied');
+        return fail('not_found', 'not found');
+      }
+      let scope: ResolvedScope | null;
+      try {
+        scope = await resolveScopeInTx(tx, orgId, scopeId);
+      } catch (error) {
+        if (!(error instanceof OrgError) || error.code !== 'not_found') throw error;
+        await audit(tx, 'denied');
+        return fail('not_found', 'not found');
+      }
+      const scopeContext = await loadScopeContextInTx(tx, orgId, membership, scope?.chain ?? []);
+      if (!canInScope(authz, scopeContext, config.permission)) {
+        await audit(tx, 'denied', scope?.id ?? null);
+        return fail('forbidden', 'not allowed');
+      }
+
+      const value = await config.handler(
+        { tx, principal, orgId, membership, caller, scope, scopeContext },
+        input,
+      );
+      await audit(tx, 'success', config.resourceId?.(value, input) ?? scope?.id ?? null);
+      return { ok: true, value };
+    });
   };
 
   return Object.assign(run, { permission: config.permission as string, scope: 'org' as const });

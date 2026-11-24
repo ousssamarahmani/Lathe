@@ -7,7 +7,7 @@
 import { z } from 'zod';
 
 /** Version of the contract set. A breaking change bumps the major version. */
-export const CONTRACT_VERSION = '1.1.0' as const;
+export const CONTRACT_VERSION = '1.2.0' as const;
 
 /** ISO 8601 timestamp with an explicit offset, for example `2026-11-17T10:00:00Z`. */
 export const IsoDateTime = z.iso.datetime({ offset: true });

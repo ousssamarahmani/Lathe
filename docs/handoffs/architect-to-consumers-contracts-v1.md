@@ -74,3 +74,14 @@ Clarifications:
 - **R6. One spec, and spec edits (P9-04).** Add `GET /v1/specs/:specId`. Confirm that editing a spec means submitting a new version that sets the old one to `superseded`.
 - **R7. Delivery before a PR exists (P9-06).** State whether `getDelivery` answers `not_found` before delivery, or returns a nullable body.
 - **R8. Agents and Settings pages (P9-02).** No routes back them. Confirm they stay honest empty states for the MVP (cut ladder step 6).
+
+## Answers from architect (P1-06, 2026-11-22)
+
+C1 is final (frozen v1) in `packages/shared-contracts/src/tenant-contract.ts`.
+
+- **Q1 harness login:** `session.signIn` and `session.setActiveOrg` name the routes; `principals` lists a test user per role in org A and org B (`.test`/`.example` emails); `passwordEnv` names the env var with their password. The contract never holds a secret.
+- **Q2 server actions:** every contract action is an HTTP route through `defineAction`. A Next.js server action calls the same `defineAction` and is not listed.
+- **Q3 foundation tables:** `organizations` (kind `organization`) and `audit_events` (kind `audit`, append-only) are declared and checked by the suites.
+- **Q4 hierarchy:** not in v1; P7-01 adds it as v2.
+- **Q5 several tables:** `table` is the main target, `alsoTouches` lists the rest.
+- **Fixtures:** only `seed-script` remains. `via-actions` cannot create users because sign-up is closed by default (P1-03).

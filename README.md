@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/brand/lathe-logo.png" alt="Lathe: mini software factory. Build, verify and deliver with AI agents. Specs, foundation, apps, verify, delivery." width="600" />
+  <img src="docs/assets/brand/lathe-logo.png" alt="Lathe: mini software factory. Build, verify and deliver with AI agents. Specs, foundation, apps, verify, delivery." width="800" />
   <p>
     <a href="#what-lathe-is">Code</a>
     ·

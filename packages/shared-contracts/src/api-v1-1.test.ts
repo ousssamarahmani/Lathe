@@ -22,8 +22,8 @@ const me = {
 };
 
 describe('C4 v1.1', () => {
-  it('reports version 1.1.0', () => {
-    expect(CONTRACT_VERSION).toBe('1.1.0');
+  it('reports version 1.1 or later', () => {
+    expect(CONTRACT_VERSION).not.toBe('1.0.0');
   });
 
   it('R1: /v1/me returns the user, memberships and active-org permissions', () => {

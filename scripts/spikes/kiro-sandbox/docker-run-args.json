@@ -1,5 +1,5 @@
 {
-  "comment": "Hardening flags for every P0-04 spike container. Mode-specific flags (credential, network) are added by the caller.",
+  "comment": "Hardening flags for every P0-04 spike container. HOME (/home/lathe) is not a tmpfs: in mode B it is the Kiro session volume. The caller adds the session volume and the work directory.",
   "args": [
     "run",
     "--rm",
@@ -13,8 +13,6 @@
     "--read-only",
     "--tmpfs",
     "/tmp:rw,noexec,nosuid,size=64m",
-    "--tmpfs",
-    "/home/lathe:rw,nosuid,size=256m,uid=10001,gid=10001",
     "--pids-limit",
     "256",
     "--memory",

@@ -20,5 +20,8 @@ Use **mode B** for the Kiroween MVP. Switch to an API key (mode A) if the plan i
 - Contract C2 needs v1.2: a `kiro-session` mount source that may be read-write, and a type for permission requests (spike finding 1).
 - A human must sign in again when the session expires.
 
+## Open criterion
+Kiro's terms of use and rate limits must permit automated use. **Not confirmed** for the Free plan. The lead checks before agents run unattended or the demo is recorded. If not permitted: a paid plan with an API key (mode A).
+
 ## Verification
 `docs/spikes/kiro-acp.md`: handshake, prompt that wrote a file, and cancellation, all inside the hardened container. P4-01 and P4-02 re-check with the production image and the egress allow-list.

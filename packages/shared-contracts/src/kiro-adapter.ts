@@ -1,7 +1,12 @@
 /**
  * C2 Kiro adapter and sandbox interfaces.
  *
- * Status: FROZEN, v1, 2026-11-17. Changes need a handoff request to `architect`.
+ * Status: FROZEN, v1.2, 2026-11-21. Changes need a handoff request to `architect`.
+ * v1.2 (spike P0-04, ADR 0003): `kiro-session` mount for a login session, an optional
+ *   `permissionPolicy` on sessions, and `permission_request` events.
+ *   PR #15 review fix: the `kiro-session` mount path is fixed to `KIRO_SESSION_PATH`
+ *   (`/home/agent/.kiro`), outside `/workspace`, and may not overlap any other mount, so
+ *   the token cannot sit inside the target app or reach the patch.
  * Owner: architect.
  * Implemented by: `integrations/kiro` (ACP adapter, fake ACP server, Docker sandbox runner).
  * Consumed by: `services/factory-engine` (pipeline), wired in only in `src/main.ts`.
@@ -43,6 +48,18 @@ export const SessionRequest = z.strictObject({
   /** Hard limit for the whole session. The adapter cancels and reports `timeout` when it is reached. */
   timeoutMs: z.number().int().min(1_000).max(3_600_000),
   mcpServers: NoMcpServers,
+  /**
+   * How the adapter answers Kiro's `session/request_permission` (spike finding 1).
+   * Absent means every request is rejected (deny by default).
+   */
+  permissionPolicy: z
+    .strictObject({
+      /** Tool calls may write only under these paths. */
+      allowWritesUnder: z.array(ContainerPath).min(1).max(4),
+      /** Whether shell commands may run at all. */
+      allowCommands: z.boolean(),
+    })
+    .optional(),
 });
 export type SessionRequest = z.infer<typeof SessionRequest>;
 
@@ -94,6 +111,16 @@ export const KiroEvent = z.discriminatedUnion('type', [
     output: z.unknown().optional(),
   }),
   z.strictObject({ ...eventBase, type: z.literal('turn_end'), stopReason: StopReason }),
+  /** A permission request from Kiro and the adapter's answer under the session's policy. */
+  z.strictObject({
+    ...eventBase,
+    type: z.literal('permission_request'),
+    toolCallId: z.string().min(1).max(200),
+    title: z.string().max(500),
+    decision: z.enum(['allowed', 'rejected']),
+    /** Why, in policy terms, for example `write outside /workspace/app`. */
+    reason: z.string().max(500),
+  }),
   z.strictObject({
     ...eventBase,
     type: z.literal('adapter_error'),
@@ -131,16 +158,55 @@ export interface KiroAdapter {
 export const SecretEnvName = z.enum(['KIRO_API_KEY']);
 export type SecretEnvName = z.infer<typeof SecretEnvName>;
 
-export const MountSource = z.enum(['target-app', 'application-foundation', 'kiro-runtime-config']);
+/**
+ * `kiro-session`: the Kiro login session volume (mode B, ADR 0003). It holds a
+ * credential: agent sandboxes only, never a verifier. Kiro refreshes the token,
+ * so it may be read-write.
+ */
+export const MountSource = z.enum([
+  'target-app',
+  'application-foundation',
+  'kiro-runtime-config',
+  'kiro-session',
+]);
 export type MountSource = z.infer<typeof MountSource>;
 
+/**
+ * The only container path the `kiro-session` mount may use. It is outside
+ * `/workspace`, so the token can never sit inside the target app or any other
+ * mount, and so never reach the patch.
+ */
+export const KIRO_SESSION_PATH = '/home/agent/.kiro';
+
+/** Absolute container path with no `..` segment. */
+const AbsoluteContainerPath = z
+  .string()
+  .regex(/^(\/[A-Za-z0-9._@-]+)+$/, 'expected an absolute path')
+  .refine((p) => !p.split('/').includes('..'), '".." segments are not allowed');
+
 export const Mount = z
-  .strictObject({ source: MountSource, containerPath: ContainerPath, mode: z.enum(['ro', 'rw']) })
+  .strictObject({
+    source: MountSource,
+    containerPath: AbsoluteContainerPath,
+    mode: z.enum(['ro', 'rw']),
+  })
   .refine(
-    (m) => m.source === 'target-app' || m.mode === 'ro',
-    'only the target app may be mounted read-write',
+    (m) => m.source === 'target-app' || m.source === 'kiro-session' || m.mode === 'ro',
+    'only the target app and the Kiro session may be mounted read-write',
+  )
+  .refine(
+    (m) =>
+      m.source === 'kiro-session'
+        ? m.containerPath === KIRO_SESSION_PATH
+        : ContainerPath.safeParse(m.containerPath).success,
+    `the kiro-session mount must be ${KIRO_SESSION_PATH}; every other mount must be under /workspace`,
   );
 export type Mount = z.infer<typeof Mount>;
+
+/** True when one path equals, contains or is nested inside the other. */
+function pathsOverlap(a: string, b: string): boolean {
+  return a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
+}
 
 /** Hostname for the egress allow-list, for example `api.example.com`. No wildcards. */
 export const EgressHost = z
@@ -171,7 +237,7 @@ export const SandboxSpec = z
         /^[a-z0-9./_-]+(:[A-Za-z0-9._-]+)?@sha256:[a-f0-9]{64}$/,
         'image must be pinned by sha256 digest',
       ),
-    mounts: z.array(Mount).min(1).max(4),
+    mounts: z.array(Mount).min(1).max(5),
     secretEnv: z.array(SecretEnvName).max(1),
     egressAllowlist: z.array(EgressHost).max(20),
     limits: z.strictObject({
@@ -189,6 +255,16 @@ export const SandboxSpec = z
         path: ['mounts'],
         message: 'each mount source may appear once',
       });
+    const session = s.mounts.find((m) => m.source === 'kiro-session');
+    if (
+      session &&
+      s.mounts.some((m) => m !== session && pathsOverlap(m.containerPath, session.containerPath))
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['mounts'],
+        message: 'the kiro-session mount must not overlap any other mount',
+      });
     if (!sources.includes('target-app'))
       ctx.addIssue({ code: 'custom', path: ['mounts'], message: 'the target app must be mounted' });
     if (s.purpose === 'verifier') {
@@ -204,8 +280,12 @@ export const SandboxSpec = z
           path: ['egressAllowlist'],
           message: 'a verifier has no egress',
         });
-      if (sources.includes('kiro-runtime-config'))
-        ctx.addIssue({ code: 'custom', path: ['mounts'], message: 'a verifier does not run Kiro' });
+      if (sources.includes('kiro-runtime-config') || sources.includes('kiro-session'))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['mounts'],
+          message: 'a verifier does not run Kiro and holds no Kiro credential',
+        });
     }
   });
 export type SandboxSpec = z.infer<typeof SandboxSpec>;

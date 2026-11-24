@@ -2,7 +2,11 @@ import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
 
-const DEFAULT_DIR = fileURLToPath(new URL('../../migrations/', import.meta.url));
+// `webpackIgnore`: apps bundle the foundation with Next.js, which would otherwise try to
+// bundle this directory as an asset. Migrations run from scripts, never from a bundle.
+const DEFAULT_DIR = fileURLToPath(
+  new URL(/* webpackIgnore: true */ '../../migrations/', import.meta.url),
+);
 const APP_ROLE_VAR = ':"app_role"';
 // Arbitrary constant so two runners never apply migrations at the same time.
 const LOCK_KEY = 7_401_101;
