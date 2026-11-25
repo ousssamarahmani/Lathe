@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "timeoutMs": 600000,
+  "static": [
+    { "name": "typecheck", "args": ["run", "typecheck"] },
+    { "name": "lint", "args": ["run", "lint"] },
+    { "name": "build", "args": ["run", "build"] }
+  ],
+  "tests": {
+    "args": ["exec", "vitest", "run", "--reporter=json", "--outputFile={report}"],
+    "defaultMinTests": 1,
+    "minTests": {}
+  }
+}

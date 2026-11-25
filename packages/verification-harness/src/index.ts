@@ -9,6 +9,8 @@ export { defaultGates } from './registry.js';
 export { runVerification, type RunInput } from './runner.js';
 export { main, parseArgs, USAGE, type CliDeps } from './cli.js';
 export { parsePatch, unquote, type ParsedPatch, type PatchFile } from './gates/patch-parser.js';
+export { staticGate, testsGate, StaticTestsPolicy } from './gates/build-gates.js';
+export { checkStaticIntegrity, checkTestIntegrity } from './gates/integrity.js';
 export {
   checkPatch,
   foldPath,
