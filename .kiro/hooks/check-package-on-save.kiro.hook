@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Check package on save",
+  "description": "After a TypeScript file is saved, typecheck and test only the package that contains it.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["packages/**/*.ts", "services/**/*.ts", "integrations/**/*.ts", "apps/**/*.ts", "apps/**/*.tsx", "templates/**/*.ts", "templates/**/*.tsx"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A source file was saved. Find the workspace package that contains it (nearest package.json). If the package defines a typecheck or test script, run `pnpm --filter <package-name> typecheck` and `pnpm --filter <package-name> test` and report the real result. If a script does not exist yet, say so; do not claim a pass. Never edit packages/verification-harness/ or .github/ to make a check pass."
+  }
+}

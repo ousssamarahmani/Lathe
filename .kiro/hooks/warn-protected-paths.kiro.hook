@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "name": "Warn on protected path edit",
+  "description": "Warn when a file under packages/verification-harness/ or .github/ is edited. These paths are protected.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["packages/verification-harness/**", ".github/**"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "WARNING: a protected path was edited (packages/verification-harness/** is owned by verification, .github/** by devops). Stop. Confirm you are the path owner and that the change is part of your assigned task. If not, revert your edit and file a handoff request in docs/handoffs/. Never change these paths to make a check pass."
+  }
+}
