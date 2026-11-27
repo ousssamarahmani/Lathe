@@ -1,0 +1,2 @@
+# Image build inputs must keep LF: a CRLF shebang breaks the entrypoint.
+* text eol=lf

@@ -6,6 +6,7 @@ export default defineConfig({
       'packages/application-foundation',
       'packages/verification-harness',
       'packages/shared-contracts',
+      'integrations/kiro',
       'services/factory-engine',
       // Every app has its own vitest.config.ts, including apps from `pnpm new-app`.
       'apps/*',

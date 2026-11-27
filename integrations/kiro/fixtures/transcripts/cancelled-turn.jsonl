@@ -1,0 +1,8 @@
+{"dir":"in","msg":{"jsonrpc":"2.0","method":"initialize"}}
+{"dir":"out","replyTo":"initialize","msg":{"jsonrpc":"2.0","result":{"protocolVersion":1}}}
+{"dir":"in","msg":{"jsonrpc":"2.0","method":"session/new"}}
+{"dir":"out","replyTo":"session/new","msg":{"jsonrpc":"2.0","result":{"sessionId":"sess-replay-2"}}}
+{"dir":"in","msg":{"jsonrpc":"2.0","method":"session/prompt"}}
+{"dir":"out","msg":{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-replay-2","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Starting a long task."}}}}}
+{"dir":"in","msg":{"jsonrpc":"2.0","method":"session/cancel"}}
+{"dir":"out","replyTo":"session/prompt","msg":{"jsonrpc":"2.0","result":{"stopReason":"cancelled"}}}

@@ -1,0 +1,14 @@
+{"dir":"in","msg":{"jsonrpc":"2.0","method":"initialize"}}
+{"dir":"out","replyTo":"initialize","msg":{"jsonrpc":"2.0","result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true},"authMethods":[{"id":"aws-builder-id"},{"id":"aws-iam-identity-center"}]}}}
+{"dir":"in","msg":{"jsonrpc":"2.0","method":"session/new"}}
+{"dir":"out","replyTo":"session/new","msg":{"jsonrpc":"2.0","result":{"sessionId":"sess-replay-1"}}}
+{"dir":"out","msg":{"jsonrpc":"2.0","method":"_kiro/mcp/status","params":{"servers":[]}}}
+{"dir":"in","msg":{"jsonrpc":"2.0","method":"session/prompt"}}
+{"dir":"out","msg":{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-replay-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"I will create the file."}}}}}
+{"dir":"out","msg":{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-replay-1","update":{"sessionUpdate":"tool_call","toolCallId":"tc-1","title":"Writing SPIKE_OK.txt","kind":"edit","status":"pending","rawInput":{"path":"/workspace/app/SPIKE_OK.txt"}}}}}
+{"dir":"out","msg":{"jsonrpc":"2.0","id":77,"method":"session/request_permission","params":{"sessionId":"sess-replay-1","toolCall":{"toolCallId":"tc-1","title":"Writing SPIKE_OK.txt","kind":"edit","locations":[{"path":"/workspace/app/SPIKE_OK.txt"}]},"options":[{"optionId":"allow_once","name":"Allow","kind":"allow_once"},{"optionId":"reject_once","name":"Reject","kind":"reject_once"}]}}}
+{"dir":"in","msg":{"jsonrpc":"2.0","id":77,"result":{"outcome":{"outcome":"selected","optionId":"allow_once"}}}}
+{"dir":"out","msg":{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-replay-1","update":{"sessionUpdate":"tool_call_update","toolCallId":"tc-1","status":"completed","rawOutput":{"ok":true}}}}}
+{"dir":"out","msg":{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-replay-1","update":{"sessionUpdate":"session_info_update","title":"spike"}}}}
+{"dir":"out","msg":{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess-replay-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Done."}}}}}
+{"dir":"out","replyTo":"session/prompt","msg":{"jsonrpc":"2.0","result":{"stopReason":"end_turn"}}}
