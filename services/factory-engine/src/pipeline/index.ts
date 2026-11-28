@@ -21,6 +21,17 @@ export {
   type PlanSource,
 } from './build.js';
 export {
+  FaultInjectionError,
+  applyFault,
+  createFaultInjector,
+  faultFlagFor,
+  type FaultErrorCode,
+  type FaultInjection,
+  type FaultResult,
+  type FaultRun,
+  type RunFaultSource,
+} from './fault.js';
+export {
   VERIFY_PATCH_FILE,
   VERIFY_REPORT_FILE,
   VERIFY_WORKTREE,

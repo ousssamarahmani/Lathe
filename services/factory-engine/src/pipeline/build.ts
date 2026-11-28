@@ -14,6 +14,7 @@ import { isWithinPath, type SpecDocument } from '../domain/spec.js';
 import { redactString, sha256Hex, type EvidenceLog } from '../evidence/index.js';
 import type { EngineCapability } from '../orchestrator/capability.js';
 import { RunStateError, transitionRun, type RunStore } from '../orchestrator/index.js';
+import { FaultInjectionError } from './fault.js';
 import { planApprovalSubject, type SpecSource } from './plan.js';
 
 /** Reads the stored plan of a run. Counterpart of `PlanStore.save`. */
@@ -49,7 +50,13 @@ export interface BuildSandboxProvider {
  * here. When present it may replace a task's patch before the protected-path check.
  */
 export interface BuildFaultInjector {
-  afterTask(context: { runId: string; taskKey: string; patch: Patch }): Promise<Patch>;
+  afterTask(context: {
+    runId: string;
+    taskKey: string;
+    patch: Patch;
+    /** True for the last task: its patch is the cumulative one that goes to verification. */
+    final: boolean;
+  }): Promise<Patch>;
 }
 
 export interface BuildSandboxConfig {
@@ -503,8 +510,20 @@ export async function runBuildStep(deps: BuildStepDeps, runId: string): Promise<
       return fail(result.reason, key);
     }
     let patch = result.patch;
-    if (deps.faultInjector)
-      patch = await deps.faultInjector.afterTask({ runId, taskKey: key, patch });
+    if (deps.faultInjector) {
+      try {
+        patch = await deps.faultInjector.afterTask({
+          runId,
+          taskKey: key,
+          patch,
+          final: key === order[order.length - 1],
+        });
+      } catch (error) {
+        if (!(error instanceof FaultInjectionError)) throw error;
+        await deps.evidence.append(runId, 'fault_error', { code: error.code });
+        return fail('build_patch_invalid', key);
+      }
+    }
 
     const check = checkPatchPaths(patch, spec);
     if (!check.ok) {

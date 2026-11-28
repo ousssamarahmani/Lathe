@@ -10,6 +10,7 @@ import {
 } from '@lathe/shared-contracts';
 import { checkPatchPaths, CONTAINER_APP_PATH, CONTAINER_FOUNDATION_PATH } from './build.js';
 import type { BuildSandboxConfig } from './build.js';
+import { FaultInjectionError, faultFlagFor, type RunFaultSource } from './fault.js';
 import type { SpecSource } from './plan.js';
 import {
   canonicalJson,
@@ -78,6 +79,8 @@ export interface VerifyStepDeps {
   readonly sandboxConfig: Pick<BuildSandboxConfig, 'image'>;
   /** Whole `lathe-verify` run. */
   readonly timeoutMs: number;
+  /** Demo and fault setting of runs (P5-05). Absent means no run is a demo run. */
+  readonly faults?: RunFaultSource;
 }
 
 export type VerifyErrorReason = 'verification_error';
@@ -257,12 +260,21 @@ export async function runVerifyStep(
   // Defense in depth: P5-02 already rejects these. A patch reaching here with one is an error.
   if (!checkPatchPaths(patch.data, spec).ok) return error('stored patch touches forbidden paths');
 
+  let faultInjection: VerifyRequest['faultInjection'] = null;
+  if (deps.faults) {
+    try {
+      faultInjection = faultFlagFor(await deps.faults.get(runId));
+    } catch (cause) {
+      if (!(cause instanceof FaultInjectionError)) throw cause;
+      return error(`fault configuration rejected: ${cause.code}`);
+    }
+  }
   // Shape tied to C3: VerifyRequest is the input, the flags mirror it.
   const request = VerifyRequest.parse({
     app: spec.targetApp,
     worktree: VERIFY_WORKTREE,
     commit: deps.baseCommit,
-    faultInjection: null, // P5-05 injection point
+    faultInjection,
   });
   let sandbox: VerifierHandle | undefined;
   let result: VerifyExecResult;
