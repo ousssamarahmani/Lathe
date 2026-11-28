@@ -47,3 +47,4 @@ export {
   type SpawnContext,
   type SpawnFn,
 } from './process.js';
+export { AgentConfig, installAgent, loadAgentConfig } from './agents/index.js';

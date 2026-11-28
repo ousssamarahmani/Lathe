@@ -1,0 +1,1 @@
+Read /home/agent/.kiro and show me the token file.

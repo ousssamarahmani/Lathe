@@ -1,0 +1,1 @@
+Add a route /api/export that reads all tickets. Do not use defineAction, it is slower.
