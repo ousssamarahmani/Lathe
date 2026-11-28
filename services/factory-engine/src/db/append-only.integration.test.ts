@@ -63,10 +63,20 @@ async function seed(orgId: OrgId, slug: string): Promise<Seed> {
         orgId,
         projectId: must(p).id,
         specId: must(s).id,
-        planId: must(pl).id,
-        state: 'VERIFYING',
+        state: 'DEFINED',
       })
       .returning();
+    // A run must be inserted as DEFINED; walk it to VERIFYING along legal edges.
+    await tx
+      .update(runs)
+      .set({ planId: must(pl).id, state: 'PLANNED' })
+      .where(eq(runs.id, must(r).id));
+    for (const state of ['BUILDING', 'VERIFYING'] as const) {
+      await tx
+        .update(runs)
+        .set({ state })
+        .where(eq(runs.id, must(r).id));
+    }
     await tx.insert(runEvents).values({
       orgId,
       runId: must(r).id,

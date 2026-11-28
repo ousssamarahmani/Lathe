@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import fc from 'fast-check';
 import type pg from 'pg';
@@ -55,10 +55,20 @@ async function seedRun(orgId: OrgId) {
         orgId,
         projectId: must(p).id,
         specId: must(s).id,
-        planId: must(pl).id,
-        state: 'VERIFYING',
+        state: 'DEFINED',
       })
       .returning();
+    // A run must be inserted as DEFINED; walk it to VERIFYING along legal edges.
+    await tx
+      .update(runs)
+      .set({ planId: must(pl).id, state: 'PLANNED' })
+      .where(eq(runs.id, must(r).id));
+    for (const state of ['BUILDING', 'VERIFYING'] as const) {
+      await tx
+        .update(runs)
+        .set({ state })
+        .where(eq(runs.id, must(r).id));
+    }
     return { planId: must(pl).id, runId: must(r).id };
   });
 }
